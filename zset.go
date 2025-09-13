@@ -63,11 +63,11 @@ func (b *ZB) Boundary(isMin bool) string {
 			return tools.IF(isMin, "-inf", "+inf")
 		}
 		switch v := b.V.(type) {
-		case int64:
+		case int64, int:
 			if b.Excluded {
 				return fmt.Sprintf("(%d", v)
 			}
-			return strconv.FormatInt(v, 10)
+			return fmt.Sprintf("%d", v)
 		default:
 			panic(fmt.Errorf("invalid type of score boundary: %s", reflect.TypeOf(b.V).String()))
 		}
@@ -77,7 +77,7 @@ func (b *ZB) Boundary(isMin bool) string {
 		}
 		sym := tools.IF(b.Excluded, "(", "[")
 		switch v := b.V.(type) {
-		case int64:
+		case int64, int:
 			return fmt.Sprintf("%s%d", sym, v)
 		case string:
 			return sym + v
@@ -96,9 +96,12 @@ func (a *ZArgs) ByScore() *ZArgs                   { a.byScore, a.byLex = true, 
 func (a *ZArgs) ByLEX() *ZArgs                     { a.byScore, a.byLex = false, true; return a }
 func (a *ZArgs) Paginate(begin, size int64) *ZArgs { a.offset, a.count = begin, size; return a }
 func (a *ZArgs) WithKey(key string) *ZArgs         { a.key = key; return a }
+func NewZArgs(key string) *ZArgs                   { return &ZArgs{key: key} }
 
 func (a *ZArgs) MinString() string {
 	switch v := a.min.(type) {
+	case int:
+		return strconv.FormatInt(int64(v), 10)
 	case int64:
 		return strconv.FormatInt(v, 10)
 	case string:
@@ -117,6 +120,8 @@ func (a *ZArgs) MinString() string {
 
 func (a *ZArgs) MaxString() string {
 	switch v := a.max.(type) {
+	case int:
+		return strconv.FormatInt(int64(v), 10)
 	case int64:
 		return strconv.FormatInt(v, 10)
 	case string:
@@ -180,7 +185,7 @@ func (a *ZArgs) String() string {
 		b.WriteByte(' ')
 		b.WriteString("REV")
 	}
-	if a.offset >= 0 || a.count > 0 {
+	if a.offset != 0 && a.count != 0 {
 		b.WriteByte(' ')
 		b.WriteString("LIMIT ")
 		b.WriteString(fmt.Sprintf("%d %d", a.offset, a.count))
@@ -235,10 +240,7 @@ func NewRedisZSet[Z any](client redis.Cmdable, encoder RedisZEncoder[Z],
 func (zs *RedisZSet[Z]) WithBatchSize(size int) *RedisZSet[Z] { zs.batchSize = size; return zs }
 
 func (zs *RedisZSet[Z]) _batchSize() int {
-	if zs.batchSize <= 0 {
-		return BatchSize
-	}
-	return zs.batchSize
+	return tools.IF(zs.batchSize <= 0, BatchSize, zs.batchSize)
 }
 
 func (zs *RedisZSet[Z]) _batchValues(op func(vals ...redis.Z) error, vs ...Z) error {

@@ -497,11 +497,10 @@ func (t *RedisHasher[K, V]) loadAndSetAll(ctx context.Context, key string,
 }
 
 // HGetsAndSetsIfNA 检查key是否存在，如果不存在则通过allLoader获取所有key的数据并保存
-// redis的hash无法存储0 fileds，所以当使用hash存储对象时，如果不做特殊处理，将无法缓存不存在的key（如：数据库中不存在）。
+// redis的hash无法存储0个field，所以当使用hash存储对象时，如果不做特殊处理，将无法缓存不存在的key（如：数据库中不存在）。
 // 此时通过使用在field中增加一个特殊值flag（不会与真实filed重复），用来保证没有其他field时也可以使得key在redis中。
 // 而flag对应的值则是V的缺省值。
-// 读取时，可以通过HMGet每次都将flag读取出来，一旦flag不存在，就说明key不存在。如果flag存在，而可以说明那些读取的field将
-// 是反映的实际存储的情况。
+// 读取时，可以通过HMGet每次都将flag读取出来，一旦flag不存在，就说明key不存在。如果flag存在，而可以说明被读取的field是否真实存在。
 func (t *RedisHasher[K, V]) HGetsAndSetsIfNA(ctx context.Context, key string,
 	allLoader func(ctx context.Context) (map[K]V, error), flagField K, kks ...K) (map[K]V, error) {
 	if len(kks) == 0 {
