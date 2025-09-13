@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/stephenfire/go-common"
-	"github.com/stephenfire/go-common/log"
 	"github.com/stephenfire/go-tools"
 )
 
@@ -39,9 +39,9 @@ func ConnectRedis(ctx context.Context, url string) (*RedisClient, error) {
 	opts.WriteTimeout = RedisWriteTimeout
 	client := &RedisClient{Client: redis.NewClient(opts), version: 0}
 	if err = client._info(ctx); err != nil {
-		log.Warnf("%s connected, get version error: %v", client, err)
+		slog.Warn("get version failed", "error", err.Error(), "client", client.String())
 	} else {
-		log.Debugf("%s connected", client)
+		slog.Debug("connected", "client", client.String())
 	}
 	return client, nil
 }

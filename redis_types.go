@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/bsm/redislock"
 	"github.com/redis/go-redis/v9"
 	"github.com/stephenfire/go-common"
-	"github.com/stephenfire/go-common/log"
 	"github.com/stephenfire/go-tools"
 )
 
@@ -138,11 +138,13 @@ func (l *RedisLock) _fetch(cctx context.Context) (lockingValue string, err error
 		if errors.Is(err, redislock.ErrNotObtained) {
 			lockingValue = l.redis.Get(ctx, l.key).Val()
 		}
-		log.Debugf("RedisLock: %s optain lock failed: %s, %v", l, lockingValue, err)
+		slog.Debug("acquire lock failed", "error", err.Error(), "key", l.key, "locking", lockingValue)
+		// log.Debugf("RedisLock: %s optain lock failed: %s, %v", l, lockingValue, err)
 	} else {
 		l.rlock = lock
 		lockingValue = lock.Token()
-		log.Debugf("RedisLock: %s obtained lock for key: %s", l, lockingValue)
+		slog.Debug("lock acquired", "key", l.key, "locking", lockingValue)
+		// log.Debugf("RedisLock: %s obtained lock for key: %s", l, lockingValue)
 	}
 	return
 }
@@ -155,7 +157,8 @@ func (l *RedisLock) Fetch(cctx context.Context) (lockingValue string, err error)
 	}
 	defer func() {
 		if err == nil {
-			log.Debugf("%s lock success", l)
+			slog.Info("lock succeed", "key", l.key, "value", l.value)
+			// log.Debugf("%s lock success", l)
 		}
 	}()
 	return l._fetch(cctx)
@@ -169,9 +172,11 @@ func (l *RedisLock) Release() (err error) {
 	}
 	defer func() {
 		if err != nil {
-			log.Warnf("%s release failed: %v", l, err)
+			slog.Warn("release lock failed", "key", l.key, "value", l.value, "error", err.Error())
+			// log.Warnf("%s release failed: %v", l, err)
 		} else {
-			log.Debugf("%s released", l)
+			slog.Debug("lock released", "key", l.key, "value", l.value)
+			// log.Debugf("%s released", l)
 		}
 	}()
 	ctx, cancel := context.WithTimeout(context.Background(), RedisTimeout)
@@ -192,9 +197,11 @@ func (l *RedisLock) Refresh(cctx context.Context) (err error) {
 	defer l.lock.Unlock()
 	defer func() {
 		if err != nil {
-			log.Warnf("%s refresh failed: %v", l, err)
+			slog.Warn("refresh lock failed", "key", l.key, "value", l.value, "error", err.Error())
+			// log.Warnf("%s refresh failed: %v", l, err)
 		} else {
-			log.Debugf("%s refreshed", l)
+			slog.Debug("lock refreshed", "key", l.key, "value", l.value)
+			// log.Debugf("%s refreshed", l)
 		}
 	}()
 	if l.rlock == nil {
