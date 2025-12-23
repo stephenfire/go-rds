@@ -6,10 +6,10 @@ toolchain go1.24.6
 
 require (
 	github.com/bsm/redislock v0.9.4
-	github.com/redis/go-redis/v9 v9.14.0
+	github.com/redis/go-redis/v9 v9.17.2
 	github.com/stephenfire/go-common v1.0.1
 	github.com/stephenfire/go-rtl v1.2.1
-	github.com/stephenfire/go-tools v0.1.0
+	github.com/stephenfire/go-tools v0.1.3
 )
 
 require (
@@ -21,6 +21,6 @@ require (
 	github.com/lestrrat-go/strftime v1.1.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	golang.org/x/crypto v0.42.0 // indirect
-	golang.org/x/sys v0.36.0 // indirect
+	golang.org/x/crypto v0.46.0 // indirect
+	golang.org/x/sys v0.39.0 // indirect
 )

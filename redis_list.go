@@ -2,8 +2,10 @@ package rds
 
 import (
 	"context"
+	"reflect"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/stephenfire/go-tools"
 )
 
 type RedisBatchValue[V any] struct {
@@ -98,4 +100,75 @@ type (
 	MapLoader[K comparable, V any] func(ctx context.Context, ks ...K) (map[K]V, error)
 
 	IsNil[T any] func(T) bool
+
+	RedisTree[K1 comparable, K2 comparable, V any] struct {
+		parent       *RedisString[K1, []K2]
+		child        *RedisString[K2, V]
+		parentLoader MapLoader[K1, []K2]
+		childLoader  MapLoader[K2, V]
+		isChildNil   IsNil[V]
+	}
 )
+
+func IsDefaultZero[T any](t T) bool {
+	val := reflect.ValueOf(t)
+	if !val.IsValid() {
+		return true
+	}
+	return val.IsZero()
+}
+
+func NewRedisTree[K1 comparable, K2 comparable, V any](
+	parentRS *RedisString[K1, []K2], parentLoader MapLoader[K1, []K2],
+	childRS *RedisString[K2, V], childLoader MapLoader[K2, V],
+	isChildNil ...IsNil[V]) *RedisTree[K1, K2, V] {
+	rtree := &RedisTree[K1, K2, V]{
+		parent:       parentRS,
+		child:        childRS,
+		parentLoader: parentLoader,
+		childLoader:  childLoader,
+	}
+	if len(isChildNil) > 0 && isChildNil[0] != nil {
+		rtree.isChildNil = isChildNil[0]
+	}
+	return rtree
+}
+
+func (t *RedisTree[K1, K2, V]) _isChildNil(v V) bool {
+	if t.isChildNil == nil {
+		return IsDefaultZero(v)
+	}
+	return t.isChildNil(v)
+}
+
+func (t *RedisTree[K1, K2, V]) Children(ctx context.Context, ks ...K1) (map[K1][]V, error) {
+	childrenKeyMap, err := t.parent.GetsAndSets(ctx, t.parentLoader, ks...)
+	if err != nil {
+		return nil, err
+	}
+	if len(childrenKeyMap) == 0 {
+		return nil, nil
+	}
+	childrenKeys := tools.AllMapValueSlices(childrenKeyMap)
+	if len(childrenKeys) == 0 {
+		return nil, nil
+	}
+	childrenMap, err := t.child.GetsAndSets(ctx, t.childLoader, childrenKeys...)
+	if err != nil {
+		return nil, err
+	}
+	if len(childrenMap) == 0 {
+		return nil, nil
+	}
+	ret := make(map[K1][]V, len(childrenKeyMap))
+	for k1, k2s := range childrenKeyMap {
+		for _, k2 := range k2s {
+			if child := childrenMap[k2]; t._isChildNil(child) {
+				continue
+			} else {
+				ret[k1] = append(ret[k1], child)
+			}
+		}
+	}
+	return ret, nil
+}
