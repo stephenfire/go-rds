@@ -4,16 +4,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
+	"maps"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/stephenfire/go-tools"
 )
 
-type KeyValuer[K comparable, V any] interface {
-	Key() K
-	Value() V
-}
+type (
+	KeyValuer[K comparable, V any] interface {
+		Key() K
+		Value() V
+	}
+
+	KeyValuers[K comparable, V any] []KeyValuer[K, V]
+)
 
 func ConvertKV[K comparable, V any, T KeyValuer[K, V]](values []T) []KeyValuer[K, V] {
 	if values == nil {
@@ -38,6 +44,16 @@ func MapKV[K comparable, V any, T KeyValuer[K, V]](values []T) map[K]V {
 		m[value.Key()] = value.Value()
 	}
 	return m
+}
+
+func (vs KeyValuers[K, V]) All() iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		for _, v := range vs {
+			if !yield(v.Key(), v.Value()) {
+				return
+			}
+		}
+	}
 }
 
 type RedisHasher[K comparable, V any] struct {
@@ -322,15 +338,10 @@ func (t *RedisHasher[K, V]) HSet(ctx context.Context, key string, field K, value
 	return t.client.HSet(ctx, key, fieldStr, valueStr).Err()
 }
 
-func (t *RedisHasher[K, V]) HSets(ctx context.Context, key string, values []KeyValuer[K, V]) error {
-	if len(values) == 0 {
-		return nil
-	}
+func (t *RedisHasher[K, V]) HSetsIter(ctx context.Context, key string, values iter.Seq2[K, V]) error {
 	var params []any
 	var count int64
-	for _, kv := range values {
-		k := kv.Key()
-		v := kv.Value()
+	for k, v := range values {
 		oneKey, err := t.fieldEncoder(k)
 		if err != nil {
 			return fmt.Errorf("encode field failed: %w", err)
@@ -361,41 +372,18 @@ func (t *RedisHasher[K, V]) HSets(ctx context.Context, key string, values []KeyV
 	return nil
 }
 
+func (t *RedisHasher[K, V]) HSets(ctx context.Context, key string, values []KeyValuer[K, V]) error {
+	if len(values) == 0 {
+		return nil
+	}
+	return t.HSetsIter(ctx, key, KeyValuers[K, V](values).All())
+}
+
 func (t *RedisHasher[K, V]) HSetsMap(ctx context.Context, key string, valueMap map[K]V) error {
 	if len(valueMap) == 0 {
 		return nil
 	}
-	var params []any
-	var count int64
-	for k, v := range valueMap {
-		oneKey, err := t.fieldEncoder(k)
-		if err != nil {
-			return fmt.Errorf("encode field failed: %w", err)
-		}
-		if oneKey == "" {
-			continue
-		}
-		oneVal, err := t.valueEncoder(v)
-		if err != nil {
-			return fmt.Errorf("encode value failed: %w", err)
-		}
-		if oneVal == "" {
-			continue
-		}
-		params = append(params, oneKey, oneVal)
-		count++
-		if count%BatchSize == 0 {
-			if err := t.client.HSet(ctx, key, params...).Err(); err != nil {
-				return err
-			}
-			params = params[:0]
-			count = 0
-		}
-	}
-	if len(params) > 0 {
-		return t.client.HSet(ctx, key, params...).Err()
-	}
-	return nil
+	return t.HSetsIter(ctx, key, maps.All(valueMap))
 }
 
 func (t *RedisHasher[K, V]) HMustSets(ctx context.Context, key string, values []KeyValuer[K, V],
@@ -418,41 +406,18 @@ func (t *RedisHasher[K, V]) HMustSetsMap(ctx context.Context, key string, valueM
 	if len(mustFields) == 0 {
 		return nil
 	}
-	var params []any
-	var count int64
-	for _, k := range mustFields {
-		oneKey, err := t.fieldEncoder(k)
-		if err != nil {
-			return fmt.Errorf("encode field failed: %w", err)
-		}
-		if oneKey == "" {
-			continue
-		}
-		v, exist := valueMap[k]
-		if !exist {
-			v = placeholderVal
-		}
-		oneVal, err := t.valueEncoder(v)
-		if err != nil {
-			return fmt.Errorf("encode value failed: %w", err)
-		}
-		if oneVal == "" {
-			continue
-		}
-		params = append(params, oneKey, oneVal)
-		count++
-		if count%BatchSize == 0 {
-			if err := t.client.HSet(ctx, key, params...).Err(); err != nil {
-				return err
+
+	return t.HSetsIter(ctx, key, func(yield func(K, V) bool) {
+		for _, field := range mustFields {
+			v, exist := valueMap[field]
+			if !exist {
+				v = placeholderVal
 			}
-			params = params[:0]
-			count = 0
+			if !yield(field, v) {
+				return
+			}
 		}
-	}
-	if len(params) > 0 {
-		return t.client.HSet(ctx, key, params...).Err()
-	}
-	return nil
+	})
 }
 
 func (t *RedisHasher[K, V]) HExists(ctx context.Context, key string, field K) (bool, error) {
