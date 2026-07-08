@@ -111,7 +111,7 @@ func (c *RedisClient) SetValues(ctx context.Context, pairs ...any) error {
 	}
 	n := len(pairs)
 	if n%2 != 0 {
-		panic(errors.New("invalid key-value pair number"))
+		panic(errors.New("rds: invalid key-value pair number"))
 	}
 	var strVal string
 	var err error
@@ -119,11 +119,11 @@ func (c *RedisClient) SetValues(ctx context.Context, pairs ...any) error {
 	for i := 0; i < n; i += 2 {
 		k, ok := pairs[i].(string)
 		if !ok {
-			return errors.New("key must be string")
+			return errors.New("rds: key must be string")
 		}
 		k = strings.TrimSpace(k)
 		if k == "" {
-			return errors.New("invalid key")
+			return errors.New("rds: invalid key")
 		}
 		strVal, err = c._encode(pairs[i+1])
 		if err != nil {
@@ -247,13 +247,13 @@ func (c *RedisClient) HSetsOnce(ctx context.Context, key string, fieldValues ...
 		return nil
 	}
 	if len(fieldValues)%2 != 0 {
-		return errors.New("invalid number of HSetsOnce")
+		return errors.New("rds: invalid number of HSetsOnce")
 	}
 	var params []string
 	for i := 0; i < len(fieldValues); i += 2 {
 		fieldVal := reflect.ValueOf(fieldValues[i])
 		if fieldVal.Kind() != reflect.String || fieldVal.String() == "" {
-			return errors.New("field name of hashes must be a none-null string")
+			return errors.New("rds: field name of hashes must be a none-null string")
 		}
 		strVal, err := c._encode(fieldValues[i+1])
 		if err != nil {
@@ -269,7 +269,7 @@ func (c *RedisClient) HSets(ctx context.Context, key string, fieldValues ...any)
 		return c.Del(ctx, key)
 	}
 	if len(fieldValues)%2 != 0 {
-		return errors.New("invalid number of HSets")
+		return errors.New("rds: invalid number of HSets")
 	}
 	size := ModelsBatchSize << 1
 	var params []any

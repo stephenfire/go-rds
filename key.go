@@ -5,10 +5,9 @@ import (
 	"fmt"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/stephenfire/go-tools"
 )
 
-type RedisKey[K comparable] struct {
+type RedisKey[K any] struct {
 	client     redis.Cmdable
 	keyEncoder RedisEncoder[K]
 }
@@ -17,9 +16,8 @@ func (rk *RedisKey[K]) _keys(ks ...K) (keys []string, err error) {
 	if len(ks) == 0 {
 		return nil, nil
 	}
-	kks := tools.KS[K](ks).Dedup()
-	keys = make([]string, len(kks))
-	for i, k := range kks {
+	keys = make([]string, len(ks))
+	for i, k := range ks {
 		keys[i], err = rk.keyEncoder(k)
 		if err != nil {
 			return nil, fmt.Errorf("encode key failed: %w", err)

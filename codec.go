@@ -25,7 +25,106 @@ type (
 	RedisFloatEncoder[S any] func(v S) (float64, error)
 	// RedisFloatDecoder decoder for ZSet score
 	RedisFloatDecoder[S any] func(f float64) (S, error)
+
+	Encoder[T any, R any] func(t T) (R, error)
+	Decoder[T any, R any] func(r R) (T, error)
 )
+
+func (e Encoder[T, R]) Encodes(ts ...T) ([]R, error) {
+	if len(ts) == 0 {
+		return nil, nil
+	}
+	rs := make([]R, len(ts))
+	err := e.EncodesTo(rs, ts...)
+	if err != nil {
+		return nil, err
+	}
+	return rs, nil
+}
+
+func (e Encoder[T, R]) EncodesAsAny(ts ...T) ([]any, error) {
+	if len(ts) == 0 {
+		return nil, nil
+	}
+	rs := make([]any, len(ts))
+	err := e.EncodesToAsAny(rs, ts...)
+	if err != nil {
+		return nil, err
+	}
+	return rs, nil
+}
+
+func (e Encoder[T, R]) EncodesTo(dest []R, ts ...T) error {
+	if len(dest) == 0 {
+		return nil
+	}
+	for i := 0; i < len(dest) && i < len(ts); i++ {
+		v, err := e(ts[i])
+		if err != nil {
+			return err
+		}
+		dest[i] = v
+	}
+	return nil
+}
+
+func (e Encoder[T, R]) EncodesToAsAny(dest []any, ts ...T) error {
+	if len(dest) == 0 {
+		return nil
+	}
+	for i := 0; i < len(dest) && i < len(ts); i++ {
+		v, err := e(ts[i])
+		if err != nil {
+			return err
+		}
+		dest[i] = v
+	}
+	return nil
+}
+
+func (d Decoder[T, R]) Decode(r R, rdsErr error) (t T, e error) {
+	if rdsErr != nil {
+		if IsRedisNil(rdsErr) {
+			return t, nil
+		}
+		return t, rdsErr
+	}
+	return d(r)
+}
+
+func (d Decoder[T, R]) Decodes(rs []R, rdsErr error) ([]T, error) {
+	if rdsErr != nil {
+		if IsRedisNil(rdsErr) {
+			return nil, nil
+		}
+		return nil, rdsErr
+	}
+	vs := make([]T, 0, len(rs))
+	for _, r := range rs {
+		v, err := d(r)
+		if err != nil {
+			return nil, err
+		}
+		vs = append(vs, v)
+	}
+	return vs, nil
+}
+
+func (e RedisEncoder[T]) Encodes(ts ...T) ([]string, error) {
+	return Encoder[T, string](e).Encodes(ts...)
+}
+
+func (e RedisEncoder[T]) EncodesTo(dest []string, ts ...T) error {
+	return Encoder[T, string](e).EncodesTo(dest, ts...)
+}
+
+func (d RedisDecoder[T]) Decode(str string, rdsErr error) (t T, e error) {
+	return Decoder[T, string](d).Decode(str, rdsErr)
+}
+
+func (d RedisDecoder[T]) Decodes(strs []string, rdsErr error) ([]T, error) {
+	return Decoder[T, string](d).Decodes(strs, rdsErr)
+}
 
 func TypeEncoder[T any](value T) (string, error) {
 	val := reflect.ValueOf(value)
@@ -87,7 +186,7 @@ func RedisValueDecode[T any](val any, decoder func(string) (T, error)) (exist bo
 		return false, t, nil
 	}
 	if str, ok := val.(string); !ok {
-		return false, t, errors.New("expect string value")
+		return false, t, errors.New("rds: expect string value")
 	} else {
 		t, err = decoder(str)
 		return true, t, err
@@ -148,9 +247,9 @@ func Float64ToInt64(f float64) (int64, error) {
 	i, flowed := tools.F(f).Int()
 	if flowed {
 		if i < 0 {
-			return i, errors.New("underflowed")
+			return i, errors.New("rds: underflowed")
 		}
-		return i, errors.New("overflowed")
+		return i, errors.New("rds: overflowed")
 	}
 	return i, nil
 }

@@ -178,7 +178,7 @@ func (t *RedisHasher[K, V]) HGetsAndSets(ctx context.Context, key string,
 		return cached, nil
 	}
 	if dbLoader == nil {
-		panic(errors.New("dbLoader is nil"))
+		panic(errors.New("rds: dbLoader is nil"))
 	}
 	// load missed data from db
 	tmap, err := dbLoader(ctx, notcached...)
@@ -233,7 +233,7 @@ func (t *RedisHasher[K, V]) HGetByFieldStrings(ctx context.Context, key string, 
 		return hitList, nil, nil
 	}
 	if len(values) != len(fieldStrings) {
-		return nil, nil, errors.New("invalid values number")
+		return nil, nil, errors.New("rds: invalid values number")
 	}
 	cached = make(map[K]V)
 	for i, rval := range values {
@@ -326,14 +326,14 @@ func (t *RedisHasher[K, V]) HSet(ctx context.Context, key string, field K, value
 		return fmt.Errorf("encode field failed: %w", err)
 	}
 	if fieldStr == "" {
-		return errors.New("empty field name")
+		return errors.New("rds: empty field name")
 	}
 	valueStr, err := t.valueEncoder(value)
 	if err != nil {
 		return fmt.Errorf("encode value failed: %w", err)
 	}
 	if valueStr == "" {
-		return errors.New("empty value")
+		return errors.New("rds: empty value")
 	}
 	return t.client.HSet(ctx, key, fieldStr, valueStr).Err()
 }
@@ -426,7 +426,7 @@ func (t *RedisHasher[K, V]) HExists(ctx context.Context, key string, field K) (b
 		return false, fmt.Errorf("encode field failed: %w", err)
 	}
 	if fieldStr == "" {
-		return false, errors.New("empty field name")
+		return false, errors.New("rds: empty field name")
 	}
 	return t.client.HExists(ctx, key, fieldStr).Result()
 }
@@ -449,7 +449,7 @@ func (t *RedisHasher[K, V]) HExpire(ctx context.Context, key string, seconds int
 func (t *RedisHasher[K, V]) loadAndSetAll(ctx context.Context, key string,
 	allLoader func(ctx context.Context) (map[K]V, error), flagField K) (all map[K]V, err error) {
 	if allLoader == nil {
-		panic(errors.New("allLoader is nil"))
+		panic(errors.New("rds: allLoader is nil"))
 	}
 	all, err = allLoader(ctx)
 	if err != nil {

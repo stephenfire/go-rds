@@ -25,6 +25,14 @@ func NewRedisSet[V any](client redis.Cmdable, encoder RedisEncoder[V], decoder R
 func (s *RedisSet[V]) WithBatchSize(size int) *RedisSet[V] { s.batchSize = size; return s }
 
 func (s *RedisSet[V]) SRem(ctx context.Context, key string, vs ...V) (int64, error) {
+	values, err := Encoder[V, string](s.encoder).EncodesAsAny(vs...)
+	if err != nil {
+		return 0, err
+	}
+	return s.client.SRem(ctx, key, values...).Result()
+}
+
+func (s *RedisSet[V]) SRemInBatch(ctx context.Context, key string, vs ...V) (int64, error) {
 	if len(vs) == 0 {
 		return 0, nil
 	}
@@ -42,6 +50,14 @@ func (s *RedisSet[V]) SIsMember(ctx context.Context, key string, v V) (bool, err
 }
 
 func (s *RedisSet[V]) SAdd(ctx context.Context, key string, vs ...V) (int64, error) {
+	values, err := Encoder[V, string](s.encoder).EncodesAsAny(vs...)
+	if err != nil {
+		return 0, err
+	}
+	return s.client.SAdd(ctx, key, values...).Result()
+}
+
+func (s *RedisSet[V]) SAddInBatch(ctx context.Context, key string, vs ...V) (int64, error) {
 	if len(vs) == 0 {
 		return 0, nil
 	}
@@ -51,6 +67,17 @@ func (s *RedisSet[V]) SAdd(ctx context.Context, key string, vs ...V) (int64, err
 }
 
 func (s *RedisSet[V]) SAddWithEmpty(ctx context.Context, key string, emptyValue V, vs ...V) (int64, error) {
+	if len(vs) == 0 {
+		vs = append(vs, emptyValue)
+	}
+	values, err := Encoder[V, string](s.encoder).EncodesAsAny(vs...)
+	if err != nil {
+		return 0, err
+	}
+	return s.client.SAdd(ctx, key, values...).Result()
+}
+
+func (s *RedisSet[V]) SAddWithEmptyInBatch(ctx context.Context, key string, emptyValue V, vs ...V) (int64, error) {
 	if len(vs) == 0 {
 		vs = append(vs, emptyValue)
 	}

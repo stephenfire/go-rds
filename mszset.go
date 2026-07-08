@@ -122,7 +122,7 @@ func (ms *RedisMSZSet[M, S]) ZMScore(ctx context.Context, key string, inputs ...
 		return nil, err
 	}
 	if len(redisScores) != len(members) {
-		return nil, errors.New("redis zset.zmscore returned wrong number of results")
+		return nil, errors.New("rds: redis zset.zmscore returned wrong number of results")
 	}
 	ret := make(map[M]S, len(redisScores))
 	for i, redisScore := range redisScores {

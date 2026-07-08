@@ -153,7 +153,7 @@ func (l *RedisLock) Fetch(cctx context.Context) (lockingValue string, err error)
 	l.lock.Lock()
 	defer l.lock.Unlock()
 	if l.rlock != nil {
-		return l.rlock.Token(), errors.New("lock already fetched")
+		return l.rlock.Token(), errors.New("rds: lock already fetched")
 	}
 	defer func() {
 		if err == nil {
@@ -205,7 +205,7 @@ func (l *RedisLock) Refresh(cctx context.Context) (err error) {
 		}
 	}()
 	if l.rlock == nil {
-		return errors.New("lock not fetched")
+		return errors.New("rds: lock not fetched")
 	}
 	return l._refresh(cctx)
 }

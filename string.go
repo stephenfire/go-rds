@@ -90,7 +90,7 @@ func (s *RedisString[K, V]) Gets(ctx context.Context, ks ...K) (notcached []K, c
 		return nil, nil, err
 	}
 	if len(redisVals) != len(kks) {
-		return nil, nil, errors.New("values length mismatch")
+		return nil, nil, errors.New("rds: values length mismatch")
 	}
 	for i, redisVal := range redisVals {
 		exist, t, err := RedisValueDecode(redisVal, s.valueDecoder)
@@ -178,7 +178,7 @@ func (s *RedisString[K, V]) GetsAndSets(ctx context.Context,
 		return cached, nil
 	}
 	if dbLoader == nil {
-		panic(errors.New("database value loader is missing"))
+		panic(errors.New("rds: database value loader is missing"))
 	}
 	// load missed from db
 	tmap, err := dbLoader(ctx, notcached...)

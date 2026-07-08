@@ -112,7 +112,7 @@ func (a *ZArgs) MinString() string {
 		} else if a.byLex {
 			return v.ForLex().Min()
 		}
-		panic(errors.New("ZB cannot be an index range boundary"))
+		panic(errors.New("rds: ZB cannot be an index range boundary"))
 	default:
 		panic(fmt.Errorf("invalid type of start boundary: %s", reflect.TypeOf(a.min).String()))
 	}
@@ -132,7 +132,7 @@ func (a *ZArgs) MaxString() string {
 		} else if a.byLex {
 			return v.ForLex().Max()
 		}
-		panic(errors.New("ZB cannot be an index range boundary"))
+		panic(errors.New("rds: ZB cannot be an index range boundary"))
 	default:
 		panic(fmt.Errorf("invalid type of start boundary: %s", reflect.TypeOf(a.max).String()))
 	}
