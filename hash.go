@@ -446,7 +446,7 @@ func (t *RedisHasher[K, V]) HExpire(ctx context.Context, key string, seconds int
 	return tools.SsToTs(func(s int64) bool { return s == 1 }, results...), nil
 }
 
-func (t *RedisHasher[K, V]) loadAndSetAll(ctx context.Context, key string,
+func (t *RedisHasher[K, V]) LoadAndSetAll(ctx context.Context, key string,
 	allLoader func(ctx context.Context) (map[K]V, error), flagField K) (all map[K]V, err error) {
 	if allLoader == nil {
 		panic(errors.New("rds: allLoader is nil"))
@@ -481,7 +481,7 @@ func (t *RedisHasher[K, V]) HGetsAndSetsIfNA(ctx context.Context, key string,
 		delete(cached, flagField)
 		return cached, nil
 	}
-	all, err := t.loadAndSetAll(ctx, key, allLoader, flagField)
+	all, err := t.LoadAndSetAll(ctx, key, allLoader, flagField)
 	if err != nil {
 		return nil, err
 	}
@@ -511,7 +511,7 @@ func (t *RedisHasher[K, V]) HGetAllAndSetIfNA(ctx context.Context, key string,
 		delete(cached, flagField)
 		return cached, nil
 	}
-	all, err := t.loadAndSetAll(ctx, key, allLoader, flagField)
+	all, err := t.LoadAndSetAll(ctx, key, allLoader, flagField)
 	if err != nil {
 		return nil, err
 	}
@@ -534,10 +534,26 @@ func (t *RedisHasher[K, V]) HKeysAndSetIfNA(ctx context.Context, key string,
 	if len(fields) > 0 {
 		return fields, nil
 	}
-	all, err := t.loadAndSetAll(ctx, key, allLoader, flagField)
+	all, err := t.LoadAndSetAll(ctx, key, allLoader, flagField)
 	if err != nil {
 		return nil, err
 	}
 	delete(all, flagField)
 	return tools.KMap[K, V](all).Keys(), nil
+}
+
+func (t *RedisHasher[K, V]) HIncrBy(ctx context.Context, key string, k K, delta int64) (int64, error) {
+	field, err := t.fieldEncoder(k)
+	if err != nil {
+		return 0, err
+	}
+	return t.client.HIncrBy(ctx, key, field, delta).Result()
+}
+
+func (t *RedisHasher[K, V]) HIncrByFloat(ctx context.Context, key string, k K, delta float64) (float64, error) {
+	field, err := t.fieldEncoder(k)
+	if err != nil {
+		return 0, err
+	}
+	return t.client.HIncrByFloat(ctx, key, field, delta).Result()
 }
